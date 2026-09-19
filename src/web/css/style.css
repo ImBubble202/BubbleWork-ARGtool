@@ -1,0 +1,1045 @@
+/* ========== LinkChart 侦探推理墙 ========== */
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0a0705;
+  font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+  color: #e9e3d9;
+}
+
+#scene {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+  background: #120c07;
+}
+
+/* 软木板纹理画布 */
+#cork {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* 墙上的物件层（照片 / 便签） */
+#world {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: 2;
+  transform-origin: 0 0;
+}
+
+#items {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+#items .item { pointer-events: auto; }
+
+/* 线索连线层 */
+#strings {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+
+/* 图钉浮层：单独一层，永远在线条之上（绳端被图钉压住）。
+   它和 #world 用同一套平移缩放（见 app.js 的 applyView）。 */
+#pins {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: 4;                 /* 比 #strings(3) 高 → 钉子压住线头 */
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+
+/* ============ 顶部工具栏 ============ */
+#topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 58px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 14px;
+  background:
+    repeating-linear-gradient(92deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 7px),
+    linear-gradient(180deg, #2a2017 0%, #1a120b 46%, #100b06 100%);
+  border-bottom: 2px solid #50301c;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 215, 150, 0.08);
+  user-select: none;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 12px;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+}
+
+.brand-mark {
+  position: relative;
+  display: inline-block;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(255, 215, 150, 0.28),
+    0 3px 8px rgba(0, 0, 0, 0.55);
+}
+
+.brand-mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.brand-text h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 2.5px;
+  color: #f4efe7;
+  line-height: 1;
+}
+
+.brand-text p {
+  margin: 3px 0 0;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: #948c7e;
+}
+
+.tools {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  flex: 1;
+  flex-wrap: nowrap;
+  /* 不出现横向滚动条：空间不够时由 JS 加上 tools-compact 把按钮收成图标 */
+  overflow: hidden;
+}
+
+.tbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 11px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #d8d1c5;
+  font: inherit;
+  font-size: 13px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+}
+
+.tbtn .ico {
+  font-size: 14px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 工具栏图标统一成同一套线条风格（单色、同粗细、同大小） */
+.tbtn .ico svg,
+.nb-btn .nb-ico svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nb-btn .nb-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 「便签」用的字母图标（A）：文字类的东西一眼能认出来 */
+.tbtn .ico-a {
+  font-family: Georgia, "Times New Roman", "Microsoft YaHei", serif;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+/* ---------- 空间不够时：按钮收成"只有图标"的方块（和简记条一个样式） ---------- */
+
+body.tools-compact .tbtn {
+  width: 34px;
+  padding: 0;
+  gap: 0;
+}
+
+body.tools-compact .tbtn .lbl { display: none; }
+
+body.tools-compact .tbtn .ico { font-size: 16px; }
+
+body.tools-compact .divider { margin: 0 1px; }
+
+/* 再窄一点：连品牌文字、统计、案件名都收起来 */
+body.tools-tight .brand-text { display: none; }
+body.tools-tight .stats { display: none; }
+body.tools-tight .case-name { width: 110px; }
+body.tools-tight .divider { display: none; }
+
+.tbtn:hover {
+  background: rgba(255, 255, 255, 0.10);
+  color: #ffffff;
+}
+
+.tbtn.active {
+  border-color: rgba(224, 51, 51, 0.9);
+  background: rgba(224, 51, 51, 0.16);
+  color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(224, 51, 51, 0.35) inset;
+}
+
+.tbtn.primary {
+  color: #f7e9c8;
+  border-color: rgba(234, 190, 110, 0.28);
+}
+
+.tbtn.primary:hover {
+  background: rgba(224, 166, 85, 0.12);
+  border-color: rgba(234, 190, 110, 0.6);
+}
+
+.tbtn.danger { color: #dda0a0; }
+.tbtn.danger:hover { background: rgba(224, 51, 51, 0.14); color: #fff; }
+
+.divider {
+  width: 1px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.09);
+  margin: 0 3px;
+  flex: 0 0 auto;
+}
+
+/* ============ 线色：一个色块按钮 + 点开的调色板 ============ */
+
+/* ============ 应用内确认框（替代 window.confirm） ============ */
+
+.app-confirm {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(10, 7, 4, 0.72);
+}
+
+.app-confirm .ac-panel {
+  width: min(400px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  /* 内容长了也别出现那根难看的滚动条（还能滚，只是不画出来） */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 16px 16px 14px;
+  border: 1px solid rgba(255, 215, 150, 0.22);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #2a2017 0%, #170f0a 100%);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.65);
+  color: #e9e0cf;
+  font-size: 13.5px;
+  line-height: 1.75;
+}
+
+.app-confirm .ac-panel::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+.app-confirm .ac-text {
+  margin-bottom: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.app-confirm .ac-btns {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.app-confirm .ac-btn {
+  height: 30px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #e3dbcd;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.app-confirm .ac-btn:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+
+/* 只报信的弹窗：把「取消」藏掉，只留一个按钮 */
+.app-confirm .ac-btn[hidden] { display: none; }
+
+.app-confirm .ac-btn.danger {
+  border-color: rgba(224, 51, 51, 0.5);
+  background: rgba(224, 51, 51, 0.2);
+  color: #ffd9d9;
+}
+
+.app-confirm .ac-btn.danger:hover { background: #a0181c; border-color: #a0181c; color: #fff; }
+
+/* 「不保存，直接关闭」这种中间档：不红不亮，像个次要按钮 */
+.app-confirm .ac-btn.ghost {
+  border-color: rgba(255, 215, 150, 0.35);
+  background: rgba(255, 215, 150, 0.08);
+  color: #e8d7b4;
+}
+
+.app-confirm .ac-btn.ghost:hover { background: rgba(255, 215, 150, 0.18); color: #fff3dc; }
+
+/* 三个按钮时把它排整齐一点 */
+.app-confirm .ac-btns { flex-wrap: wrap; }
+
+/* 简记这种窄窗口里，按钮占满一行更好点 */
+@media (max-width: 420px) {
+  .app-confirm { padding: 12px; }
+  .app-confirm .ac-panel { width: 100%; padding: 14px 13px 12px; font-size: 13px; }
+  .app-confirm .ac-btn { height: 32px; padding: 0 12px; flex: 1 1 0; }
+}
+
+.tbtn.swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+}
+
+.tbtn.swatch .sw {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.55);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.tbtn.swatch.open {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(234, 190, 110, 0.5);
+  color: #fff;
+}
+
+.color-pop {
+  position: fixed;
+  z-index: 45;
+  width: 238px;
+  padding: 10px 12px 12px;
+  border: 1px solid rgba(255, 215, 150, 0.22);
+  border-radius: 10px;
+  background: linear-gradient(180deg, #2a2017 0%, #170f0a 100%);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.6);
+  user-select: none;
+}
+
+.color-pop[hidden] { display: none; }
+
+.cp-title {
+  margin: 2px 0 6px;
+  font-size: 11px;
+  color: #a99b88;
+}
+
+.cp-row,
+.cp-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.cp-grid { gap: 7px; }
+
+.cp-dot {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.55);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.cp-dot:hover { transform: scale(1.16); }
+
+.cp-dot.sel {
+  box-shadow: 0 0 0 2px #ffffff, 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.cp-empty {
+  font-size: 11px;
+  color: #6f6659;
+}
+
+.cp-custom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 12px;
+  color: #cbbfa9;
+}
+
+.cp-custom input[type="color"] {
+  width: 48px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.side {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.stats {
+  font-size: 12px;
+  color: #948c7e;
+  white-space: nowrap;
+}
+
+.case-name {
+  width: 150px;
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.28);
+  color: #f3ead7;
+  font-size: 13px;
+  text-align: right;
+  outline: none;
+}
+
+.case-name:focus {
+  border-color: rgba(234, 190, 110, 0.7);
+  background: rgba(0, 0, 0, 0.5);
+}
+
+/* ============ 照片与便签 ============ */
+.item {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+  transition: box-shadow 0.15s;
+}
+
+.item.photo {
+  background: transparent;
+}
+
+.item.photo.dragging { box-shadow: none; }
+
+.photo-surface {
+  position: absolute;
+  inset: 0;
+  padding: 9px;
+  border-radius: 2px;
+  transform-style: preserve-3d;
+  /* 以工字钉（上缘正中）为轴心翻转，像真的被钉住一样 */
+  transform-origin: 50% 4px;
+  transform: perspective(620px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform 0.18s ease-out;
+  box-shadow:
+    0 20px 34px rgba(0, 0, 0, 0.6),
+    0 7px 14px rgba(0, 0, 0, 0.45),
+    0 2px 5px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+  background: linear-gradient(155deg, #f6f0e3 0%, #efe6d2 60%, #e5d9c0 100%);
+  pointer-events: none;
+}
+
+.item.photo .photo-img {
+  position: absolute;
+  left: 9px;
+  top: 9px;
+  width: calc(100% - 18px);
+  height: calc(100% - 18px);
+  object-fit: cover;
+  background: #b9aa90;
+  display: block;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+.item.note {
+  min-width: 190px;
+  max-width: none;         /* 允许手动拉宽（默认宽度仍是 220） */
+  padding: 27px 16px 16px;
+  background:
+    repeating-linear-gradient(0deg, rgba(122, 84, 18, 0.028) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(90deg, rgba(122, 84, 18, 0.018) 0 1px, transparent 1px 5px),
+    linear-gradient(150deg, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0) 38%),
+    linear-gradient(160deg, #fff3a9 0%, #ffe98a 58%, #ffd96e 100%);
+  border-radius: 2px 2px 3px 3px;
+  box-shadow:
+    0 20px 32px rgba(0, 0, 0, 0.56),
+    0 7px 14px rgba(0, 0, 0, 0.42),
+    0 2px 5px rgba(0, 0, 0, 0.4),
+    inset 0 0 0 1px rgba(255, 250, 210, 0.7);
+}
+
+.item.note::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 24px;
+  height: 18px;
+  border-radius: 2px 0 0 0;
+  background: linear-gradient(315deg, rgba(0, 0, 0, 0.16) 0%, rgba(0, 0, 0, 0.05) 48%, rgba(255, 255, 255, 0.08) 49%, transparent 52%);
+  pointer-events: none;
+}
+
+.note-text {
+  display: block;
+  width: 100%;
+  min-height: 104px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  resize: none;
+  overflow: hidden;
+  color: #46390f;
+  font-family: "Kaiti SC", "STKaiti", "KaiTi", "Segoe Print", "Comic Sans MS", cursive;
+  font-size: 15px;
+  line-height: 1.55;
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+  box-shadow: none;
+}
+
+.note-text::placeholder {
+  color: rgba(70, 57, 15, 0.32);
+}
+
+/* 便签被手动改过高度后，文字超了要能滚，但那条白色滚动条太丑 —— 直接不画出来（滚轮照旧能滚） */
+.note-text {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.note-text::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.note-text.editing {
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
+  box-shadow: 0 0 0 2px rgba(224, 51, 51, 0.65);
+}
+
+.item.selected {
+  outline: 2px solid rgba(255, 255, 255, 0.72);
+  outline-offset: 3px;
+}
+
+.item.dragging {
+  outline: 2px dashed rgba(255, 244, 214, 0.75);
+  outline-offset: 3px;
+  box-shadow:
+    0 22px 40px rgba(0, 0, 0, 0.6),
+    0 6px 14px rgba(0, 0, 0, 0.48);
+}
+
+/* 小工具条：删除、提示 */
+.item-ctrl {
+  position: absolute;
+  top: -30px;
+  right: -26px;
+  z-index: 8;
+  display: none;
+  gap: 5px;
+  /* 反向缩放：画布缩放时按钮保持原始大小 */
+  transform: scale(var(--ui-scale, 1));
+  transform-origin: 100% 100%;
+}
+
+.item:hover .item-ctrl,
+.item.selected .item-ctrl,
+.item.dragging .item-ctrl { display: flex; }
+
+.icon-btn {
+  width: 23px;
+  height: 23px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 50%;
+  background: rgba(10, 8, 6, 0.78);
+  color: #e9e3d7;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.45);
+}
+
+.icon-btn:hover {
+  background: #a0181c;
+  color: #fff;
+}
+
+/* 便签字号按钮（A－ / A＋） */
+.icon-btn.font {
+  width: auto;
+  min-width: 26px;
+  padding: 0 6px;
+  border-radius: 12px;
+  font-size: 11px;
+  color: #e7d3a8;
+}
+
+/* 「放进简记」的笔 */
+.icon-btn.to-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-btn.to-note svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon-btn.to-note:hover { background: #7a5a22; color: #ffeec9; }
+
+.icon-btn.font:hover {
+  background: rgba(234, 190, 110, 0.22);
+  color: #fff;
+}
+
+/* ============ 缩放手柄（照片 / 便签右下角） ============ */
+.item-resize {
+  position: absolute;
+  right: -9px;
+  bottom: -9px;
+  width: 22px;
+  height: 22px;
+  z-index: 9;
+  display: none;
+  cursor: nwse-resize;
+  border-radius: 50%;
+  background: rgba(10, 8, 6, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  touch-action: none;
+  transform: scale(var(--ui-scale, 1));
+  transform-origin: 100% 100%;
+}
+
+.item-resize::after {
+  content: "";
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid #f0dcae;
+  border-bottom: 2px solid #f0dcae;
+  opacity: 0.9;
+}
+
+.item:hover .item-resize,
+.item.selected .item-resize,
+.item.resizing .item-resize { display: block; }
+
+.item.resizing {
+  outline: 2px dashed rgba(255, 244, 214, 0.8);
+  outline-offset: 3px;
+}
+
+.item.resizing .item-resize { background: #a0181c; border-color: rgba(255, 255, 255, 0.5); }
+body.resizing { cursor: nwse-resize; }
+
+/* 拖动空白处平移视图（像 CAD 拖动画布） */
+body.panning, body.panning #scene { cursor: grabbing; }
+
+/* ============ 右下角缩放轴 ============ */
+#zoombar {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 24;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid rgba(255, 215, 150, 0.16);
+  border-radius: 10px;
+  background:
+    repeating-linear-gradient(92deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 7px),
+    linear-gradient(180deg, #2a2017 0%, #170f0a 100%);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 215, 150, 0.08);
+  user-select: none;
+}
+
+.zb-btn {
+  height: 26px;
+  min-width: 26px;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #d8d1c5;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.zb-btn:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.zb-btn.wide { font-size: 12px; color: #e7d3a8; border-color: rgba(234, 190, 110, 0.28); }
+
+#zoomRange {
+  width: 132px;
+  height: 20px;
+  margin: 0;
+  background: transparent;
+  accent-color: #eabe6e;
+  cursor: pointer;
+}
+
+#zoomRange::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, rgba(234, 190, 110, 0.55), rgba(255, 255, 255, 0.18));
+}
+
+#zoomRange::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 28%, #ffd79a 0%, #e0a855 55%, #8a5a1c 100%);
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+}
+
+.zb-label {
+  min-width: 44px;
+  text-align: right;
+  color: #b7a894;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 1020px) {
+  #zoombar { right: 8px; bottom: 8px; padding: 6px 8px; gap: 6px; }
+  #zoomRange { width: 92px; }
+}
+
+/* ============ 工字钉浮层 ============ */
+.pin-overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 18px;
+  height: 25px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  z-index: 5;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: filter 0.12s;
+  /* 图钉也保持原始大小，缩放画布时不会缩成一小点 */
+  transform: scale(var(--ui-scale, 1));
+  /* 轴心对准钉头圆心（左 9px、上 8px），这样反向缩放时钉头始终压在锚点上 */
+  transform-origin: 9px 8px;
+}
+
+.pin-overlay:hover .pin-head { filter: brightness(1.18); }
+
+.pin-head {
+  position: absolute;
+  left: 1px;
+  top: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 33% 27%,
+    #ffd2bf 0%,
+    #f04f40 24%,
+    #c42329 55%,
+    #6e0d13 100%);
+  box-shadow:
+    0 4px 7px rgba(30, 0, 0, 0.55),
+    inset 0 -2px 3px rgba(60, 0, 0, 0.5),
+    inset 0 1px 1px rgba(255, 255, 255, 0.35);
+  transition: filter 0.12s;
+}
+
+.pin-head::after {
+  content: "";
+  position: absolute;
+  left: 3.5px;
+  top: 2.5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.72);
+  filter: blur(0.4px);
+}
+
+/* 从红色塑料头下方伸出的金属针 */
+.pin-cone {
+  position: absolute;
+  left: 50%;
+  top: 14px;
+  width: 7px;
+  height: 10px;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, #777b80 0%, #d8dbe0 38%, #8a8f95 55%, #5b6066 100%);
+  clip-path: polygon(30% 0, 70% 0, 100% 30%, 64% 100%, 36% 100%, 0 30%);
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
+}
+
+/* 图钉头在纸上投下的小阴影，让“钉”的感觉更真实 */
+.pin-shade {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 18px;
+  width: 16px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.32);
+  filter: blur(1.5px);
+}
+
+.pin-overlay.armed .pin-head {
+  animation: pinPulse 1s ease-out infinite;
+}
+
+/* 剪线模式：点中的第一枚工字钉变蓝（第二枚点下去就把这根线取消掉） */
+.pin-overlay.cut-armed .pin-head {
+  background: radial-gradient(circle at 33% 27%,
+    #d6ecff 0%,
+    #4a90e2 24%,
+    #1f5fa8 55%,
+    #0f2f52 100%);
+  animation: pinPulseBlue 1s ease-out infinite;
+}
+
+.pin-overlay.cut-armed .pin-cone {
+  background: linear-gradient(90deg, #4a5a6b 0%, #9fc4e8 38%, #5d7f9e 55%, #33506a 100%);
+}
+
+@keyframes pinPulseBlue {
+  0%   { box-shadow: 0 0 0 0 rgba(120, 190, 255, 0.85), 0 4px 7px rgba(0, 10, 30, 0.55); }
+  65%  { box-shadow: 0 0 0 9px rgba(120, 190, 255, 0), 0 4px 7px rgba(0, 10, 30, 0.55); }
+  100% { box-shadow: 0 0 0 0 rgba(120, 190, 255, 0), 0 4px 7px rgba(0, 10, 30, 0.55); }
+}
+
+@keyframes pinPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 245, 200, 0.8), 0 4px 7px rgba(30, 0, 0, 0.55); }
+  65%  { box-shadow: 0 0 0 9px rgba(255, 245, 200, 0), 0 4px 7px rgba(30, 0, 0, 0.55); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 245, 200, 0), 0 4px 7px rgba(30, 0, 0, 0.55); }
+}
+
+/* ============ 状态提示 / Toast ============ */
+#hint {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 30;
+  max-width: min(760px, calc(100vw - 30px));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px 9px 16px;
+  border-radius: 999px;
+  background: rgba(10, 8, 6, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f3ecdd;
+  font-size: 13px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+
+#hint #hintText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 提示条右侧的收起按钮（提示条本身不拦鼠标，只有按钮可点） */
+.hint-close {
+  flex: 0 0 auto;
+  width: 21px;
+  height: 21px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07);
+  color: #d9d1c4;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.hint-close:hover {
+  background: rgba(224, 51, 51, 0.28);
+  border-color: rgba(224, 51, 51, 0.6);
+  color: #fff;
+}
+
+#hint.closed { display: none; }
+
+/* 收起之后留在缩放轴最左边的小问号，点一下把提示叫回来 */
+#hintRestore {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 50%;
+  background: rgba(10, 8, 6, 0.62);
+  color: #cfc4b2;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  display: none;
+  pointer-events: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+#hintRestore.show {
+  display: block;
+  pointer-events: auto;
+}
+
+#hintRestore:hover { background: rgba(234, 190, 110, 0.2); color: #f7e9c8; }
+
+#toast {
+  position: fixed;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px);
+  z-index: 40;
+  max-width: min(520px, calc(100vw - 30px));
+  padding: 9px 16px;
+  border-radius: 10px;
+  background: rgba(20, 16, 12, 0.92);
+  border: 1px solid rgba(234, 190, 110, 0.35);
+  color: #f6ead2;
+  font-size: 13px;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s, transform 0.25s;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.6);
+}
+
+#toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+body.mode-cut #scene { cursor: crosshair; }
+body.mode-cut .item { cursor: crosshair; }
+body.mode-cut .pin-overlay { cursor: crosshair; }
+body.dragging, body.dragging * { cursor: grabbing !important; }
+
+/* 文件拖入墙壁时的反馈 */
+body.drag-over #scene::after {
+  content: "松开即可把照片放到墙上";
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(40, 20, 5, 0.35);
+  color: #fff2d8;
+  font-size: 20px;
+  letter-spacing: 2px;
+  pointer-events: none;
+}
+
+@media (max-width: 1020px) {
+  #topbar { flex-wrap: wrap; height: auto; padding: 7px 10px; }
+  .brand { border-right: none; }
+  .side { margin-left: auto; }
+  #hint { bottom: 10px; }
+}

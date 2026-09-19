@@ -1,0 +1,24 @@
+# ---- 打包产物（用「重新打包.bat」随时能重建） ----
+build_tmp/
+dist/
+*.spec
+
+# exe 不放仓库里，走 GitHub Releases（想直接提交的话把下面这行删掉）
+/ARGtool.exe
+
+# ---- 打包依赖（bat 会自动 pip install --target build_deps） ----
+build_deps/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+
+# ---- 临时文件 / 日志 ----
+*.tmp
+*.log
+~$*
+.DS_Store
+Thumbs.db

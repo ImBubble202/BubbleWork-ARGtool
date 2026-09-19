@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BubbleWork · ARG辅助工具</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="img/logo-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="img/logo-16.png" />
+  <link rel="apple-touch-icon" href="img/logo-128.png" />
+  <link rel="stylesheet" href="css/style.css?v=3" />
+  <link rel="stylesheet" href="css/decipher.css?v=1" />
+  <link rel="stylesheet" href="css/window.css?v=1" />
+  <link rel="stylesheet" href="css/notes.css?v=1" />
+</head>
+<body>
+  <!-- 自绘的窗口标题栏：模仿 Windows 自带的那一条，但在「最小化」左边多一个「置顶」 -->
+  <div id="titlebar">
+    <div class="tb-drag" id="tbDrag">
+      <span class="tb-mark" aria-hidden="true"><img src="img/mark-32.png" alt="" /></span>
+      <span class="tb-title" id="tbTitle">ARGtool · BubbleWork</span>
+    </div>
+    <div class="tb-btns">
+      <button class="tb-btn" id="winTop" type="button" title="置顶窗口（钉在所有窗口前面）">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.4 2.6h3.2v3.1l1.9 1.9H4.5l1.9-1.9z"/><path d="M8 7.6v5.9"/></svg>
+      </button>
+      <button class="tb-btn" id="winMin" type="button" title="最小化">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10"/></svg>
+      </button>
+      <button class="tb-btn" id="winMax" type="button" title="放大窗口">
+        <svg class="ico-max" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="3" width="10" height="10" rx="1.6"/></svg>
+        <svg class="ico-restore" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.4" y="4.8" width="8.8" height="8.8" rx="1.4"/><path d="M5.2 4.6V3.6a1.2 1.2 0 0 1 1.2-1.2h6a1.2 1.2 0 0 1 1.2 1.2v6a1.2 1.2 0 0 1-1.2 1.2h-1"/></svg>
+      </button>
+      <button class="tb-btn close" id="winClose" type="button" title="关闭窗口">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.6 3.6l8.8 8.8M12.4 3.6l-8.8 8.8"/></svg>
+      </button>
+    </div>
+  </div>
+  <div id="winGrips"></div>
+
+  <!-- 整面软木板墙 -->
+  <div id="scene">
+    <canvas id="cork"></canvas>
+    <!-- world 层：承载所有照片/便签，整体做平移与缩放 -->
+    <div id="world">
+      <div id="items"></div>
+    </div>
+    <!-- 连线层：画在照片/便签之上 -->
+    <canvas id="strings"></canvas>
+    <!-- 图钉层：单独一层、和 world 用同样的平移缩放，但永远压在最上面（盖住线头） -->
+    <div id="pins"></div>
+  </div>
+
+  <!-- 顶部案件工具栏 -->
+  <header id="topbar">
+    <div class="brand">
+      <span class="brand-mark"><img src="img/mark-64.png" alt="" /></span>
+      <div class="brand-text">
+        <h1>BubbleWork</h1>
+        <p>ARG辅助工具</p>
+      </div>
+    </div>
+
+    <div class="tools" id="tools" role="toolbar" aria-label="工具栏">
+      <button class="tbtn primary" id="btnDecipher" title="破译台"><span class="ico"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.2"/><path d="M10.3 10.3 14 14"/></svg></span><span class="lbl">破译台</span></button>
+      <button class="tbtn" id="btnNoteMode" title="简记模式"><span class="ico"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3.2" y="2.4" width="9.6" height="11.2" rx="1.6"/><path d="M5.6 6h4.8M5.6 8.6h4.8M5.6 11.2h2.8"/></svg></span><span class="lbl">简记</span></button>
+
+      <span class="divider" aria-hidden="true"></span>
+
+      <button class="tbtn active" id="toolSelect" title="选择 / 拖动墙上的照片和便签"><span class="ico"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.4v11.2M2.4 8h11.2"/><path d="M8 2.4 6.5 3.9M8 2.4 9.5 3.9M8 13.6 6.5 12.1M8 13.6 9.5 12.1M2.4 8 3.9 6.5M2.4 8 3.9 9.5M13.6 8 12.1 6.5M13.6 8 12.1 9.5"/></svg></span><span class="lbl">选择</span></button>
+      <button class="tbtn" id="toolCut" title="剪线模式：点击俩个连接状态的不同工字钉来取消连接状态"><span class="ico"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="4.3" cy="11.9" r="1.9"/><circle cx="4.3" cy="4.1" r="1.9"/><path d="M5.8 5.2 13.2 12.1M13.2 3.9 5.8 10.8"/></svg></span><span class="lbl">剪断</span></button>
+
+      <span class="divider" aria-hidden="true"></span>
+
+      <button class="tbtn swatch" id="colorBtn" type="button" title="选择连线的颜色">
+        <span class="sw" id="colorSwatch"></span><span class="lbl">线色</span>
+      </button>
+      <div class="color-pop" id="colorPop" hidden>
+        <div class="cp-title">最近用过的颜色</div>
+        <div class="cp-row" id="cpRecent"></div>
+        <div class="cp-title">预设颜色</div>
+        <div class="cp-grid" id="cpPreset"></div>
+        <div class="cp-custom">
+          <label for="cpCustom">自己调一个</label>
+          <input type="color" id="cpCustom" value="#e23b3b" />
+        </div>
+      </div>
+
+      <span class="divider" aria-hidden="true"></span>
+
+      <button class="tbtn primary" id="btnUpload" title="贴图片"><span class="ico"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.4" y="3.2" width="11.2" height="9.6" rx="1.6"/><circle cx="6" cy="6.6" r="1.05"/><path d="M3.1 12.3 6.7 8.7l2.1 2.1 1.7-1.7 2.4 2.4"/></svg></span><span class="lbl">上传照片</span></button>
+      <button class="tbtn primary" id="btnNote" title="写便条"><span class="ico ico-a">A</span><span class="lbl">便签</span></button>
+      <button class="tbtn danger" id="btnClear" title="清空整面墙"><span class="ico"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.8 4.6h10.4"/><path d="M6.4 4.6V3.1h3.2v1.5"/><path d="M4.2 4.6l.6 8.3a1 1 0 0 0 1 .9h4.4a1 1 0 0 0 1-.9l.6-8.3"/></svg></span><span class="lbl">清空</span></button>
+      <span class="divider" aria-hidden="true"></span>
+      <button class="tbtn" id="btnExport" title="导出文件"><span class="ico"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.4 9.4v2.8a1.4 1.4 0 0 0 1.4 1.4h8.4a1.4 1.4 0 0 0 1.4-1.4V9.4"/><path d="M8 10.6V2.6"/><path d="M5.2 5.4 8 2.6l2.8 2.8"/></svg></span><span class="lbl">导出</span></button>
+      <button class="tbtn" id="btnImport" title="导入文件"><span class="ico"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.4 9.4v2.8a1.4 1.4 0 0 0 1.4 1.4h8.4a1.4 1.4 0 0 0 1.4-1.4V9.4"/><path d="M8 2.6v8"/><path d="M5.2 7.8 8 10.6l2.8-2.8"/></svg></span><span class="lbl">导入</span></button>
+    </div>
+
+    <div class="side">
+      <span class="stats" id="stats"></span>
+      <input class="case-name" id="caseName" value="未命名事件" spellcheck="false"
+             title="点击修改案件名称" aria-label="案件名称" />
+    </div>
+  </header>
+
+  <input type="file" id="fileInput" accept="image/*" multiple hidden />
+  <input type="file" id="wallFileInput" accept=".lc,.linkchart,.json,application/json" hidden />
+
+  <!-- 右下角：视图缩放轴 -->
+  <div id="zoombar" role="toolbar" aria-label="视图缩放">
+    <button id="hintRestore" title="重新显示操作提示" aria-label="显示操作提示">?</button>
+    <button class="zb-btn" id="zoomOut" title="缩小（也可以直接滚动鼠标滚轮）">－</button>
+    <input type="range" id="zoomRange" min="25" max="300" step="5" value="100"
+           aria-label="缩放比例" title="拖动调整缩放" />
+    <button class="zb-btn" id="zoomIn" title="放大（也可以直接滚动鼠标滚轮）">＋</button>
+    <span class="zb-label" id="zoomLabel">100%</span>
+    <button class="zb-btn wide" id="zoomReset" title="回到 100% 缩放并回到原点">复位</button>
+  </div>
+
+  <!-- 破译台 -->
+  <aside id="decipherPanel" aria-label="密码破译台">
+    <div class="dc-head">
+      <div>
+        <h2>🔍 密码破译台</h2>
+        <p class="dc-sub">粘贴密文，自动尝试各种解密手法</p>
+      </div>
+      <button class="dc-close" id="dcClose" title="关闭破译台">✕</button>
+    </div>
+
+    <div class="dc-body">
+      <div class="dc-notice">
+        <strong>不支持破译中文</strong>
+        中文相关的解码（GB2312 区位码、UTF-8 ↔ GBK 乱码修复、中文数字）已停用——
+        这类解码几乎能把任意字节流解成「看着像中文」的假中文，误报率太高。
+        破译结果只会是英文／拉丁字母；如果线索本身是中文，请人工判断。
+      </div>
+
+      <label class="dc-label" for="dcInput">密文</label>
+      <div class="dc-modes" id="dcModes" role="tablist" aria-label="破译模式">
+        <button class="dc-mode active" id="dcModeSmart" type="button" data-mode="smart"
+                title="智能模式：先判断这段密文最像哪种，再按这个顺序给结果（每种手法最多 3 条，总共最多 15 条）">智能模式</button>
+        <button class="dc-mode" id="dcModeManual" type="button" data-mode="manual"
+                title="常规模式：自己指定一种破译方式，只看这一种的结果">常规模式</button>
+      </div>
+      <p class="dc-rule" id="dcRule">智能模式：按初步判断的类型依次给结果，每种手法最多 3 条、总共最多 15 条。</p>
+      <textarea class="dc-input" id="dcInput" spellcheck="false"
+                placeholder="例如：-.. --- --- .-. / .. ... / --- .--. . -."></textarea>
+
+      <div class="dc-grid">
+        <div class="dc-field dc-smart-only" id="dcDepthField">
+          <label class="dc-label" for="dcDepth">层数</label>
+          <select id="dcDepth">
+            <option value="1" selected>1 层</option>
+            <option value="2">2 层</option>
+            <option value="3">3 层</option>
+          </select>
+        </div>
+        <div class="dc-field dc-manual-only" id="dcMethodField" hidden>
+          <label class="dc-label" for="dcMethod">破译方式</label>
+          <select id="dcMethod"></select>
+        </div>
+        <div class="dc-field dc-key">
+          <label class="dc-label" for="dcKey">已知密钥（可选，多个用逗号分隔）</label>
+          <input id="dcKey" spellcheck="false" placeholder="例如：key, secret" />
+        </div>
+      </div>
+
+      <div class="dc-actions">
+        <button class="dc-btn primary" id="dcRun">开始破译</button>
+        <button class="dc-btn" id="dcClear">清空</button>
+      </div>
+
+      <div class="dc-status" id="dcStatus"></div>
+
+      <div class="dc-likely" id="dcLikely" hidden></div>
+      <div class="dc-hints" id="dcHints"></div>
+      <ul class="dc-notes" id="dcNotes"></ul>
+      <div class="dc-list" id="dcList">
+        <div class="dc-empty">结果会显示在这里，<br />每一条都可以复制或直接钉到墙上。</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 简记模式：细长条笔记窗口（没有照片墙和连线，破译台照旧可用） -->
+  <div id="noteApp" aria-label="简记">
+    <div class="nb-bar">
+      <div class="nb-title">
+        <span class="nb-mark" aria-hidden="true">📝</span>
+        <input class="nb-title-input" id="nbTitle" value="未命名事件" spellcheck="false"
+               title="点这里改简记名称" aria-label="简记名称" />
+      </div>
+
+      <div class="nb-tools">
+        <button class="nb-btn accent" id="nbDecipher" type="button" title="破译台"><span class="nb-ico"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.2"/><path d="M10.3 10.3 14 14"/></svg></span><span class="nb-lbl">破译</span></button>
+        <button class="nb-btn" id="nbBack" type="button" title="返回照片墙"><span class="nb-ico"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.6 3.4 3 7l3.6 3.6"/><path d="M3 7h6.2a3.6 3.6 0 0 1 0 7.2H7.4"/></svg></span><span class="nb-lbl">推理墙</span></button>
+      </div>
+    </div>
+
+    <div class="nb-sheet" id="nbSheet"></div>
+
+    <div class="nb-foot">
+      <span class="nb-count" id="nbCount"></span>
+      <span class="nb-tools2">
+        <button class="nb-mini" id="nbFontDown" type="button" title="正文字号小一点">A－</button>
+        <span class="nb-size" id="nbFontVal">100%</span>
+        <button class="nb-mini" id="nbFontUp" type="button" title="正文字号大一点">A＋</button>
+        <button class="nb-mini" id="nbCopyAll" type="button" title="把整条简记复制成 Markdown 文本">复制全文</button>
+        <button class="nb-mini" id="nbClearAll" type="button" title="清空这条简记">清空</button>
+      </span>
+    </div>
+
+    <input type="file" id="nbFileInput" accept="image/*" multiple hidden />
+  </div>
+
+  <div id="hint" role="status">
+    <span id="hintText"></span>
+    <button class="hint-close" id="hintClose" title="收起这条提示" aria-label="收起提示">✕</button>
+  </div>
+  <div id="toast" role="status"></div>
+
+  <script src="js/app.js?v=3"></script>
+  <script src="js/decipher.js?v=1"></script>
+  <script src="js/window.js?v=1"></script>
+  <script src="js/notes.js?v=1"></script>
+</body>
+</html>

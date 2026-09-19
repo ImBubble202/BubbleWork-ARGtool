@@ -1,0 +1,205 @@
+/* ========== 程序窗口相关的少量样式 ==========
+   窗口是自绘的（frameless）：标题栏、按钮、拉边抓手都在这份样式里。 */
+
+:root { --tb-h: 34px; }
+
+/* ---------- 自绘标题栏（模仿系统窗口，多了个「置顶」） ---------- */
+
+#titlebar {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--tb-h);
+  z-index: 200;
+  align-items: stretch;
+  background:
+    repeating-linear-gradient(92deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 7px),
+    linear-gradient(180deg, #2a2017 0%, #1a120b 46%, #100b06 100%);
+  border-bottom: 1px solid rgba(255, 215, 150, 0.10);
+  user-select: none;
+}
+
+body.has-titlebar #titlebar { display: flex; }
+
+/* 一整条都能拖（按钮除外） */
+.tb-drag {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 11px;
+  cursor: default;
+}
+
+.tb-mark {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(255, 215, 150, 0.22), 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.tb-mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tb-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #e7dcc6;
+  font-size: 12.5px;
+  letter-spacing: 0.3px;
+}
+
+.tb-btns {
+  display: flex;
+  align-items: stretch;
+  flex: 0 0 auto;
+}
+
+.tb-btn {
+  width: 46px;
+  height: 100%;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: #d8d1c5;
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.tb-btn svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tb-btn:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+
+/* 置顶：点亮 = 正钉在最前面 */
+.tb-btn.on {
+  background: rgba(224, 166, 85, 0.24);
+  color: #ffe6b0;
+}
+
+.tb-btn.on:hover { background: rgba(224, 166, 85, 0.36); }
+
+.tb-btn.close:hover { background: #c42b1c; color: #fff; }
+
+/* 放大 / 还原 两个图标按窗口状态切换 */
+.tb-btn .ico-restore { display: none; }
+body.win-maximized .tb-btn .ico-max { display: none; }
+body.win-maximized .tb-btn .ico-restore { display: block; }
+
+/* ---------- 标题栏出现时，把界面整体让到它下面 ---------- */
+
+body.has-titlebar #topbar { top: var(--tb-h); }
+body.has-titlebar #scene { top: var(--tb-h); }
+body.has-titlebar #noteApp { top: var(--tb-h); }
+body.has-titlebar #decipherPanel { top: calc(var(--tb-h) + 58px); }
+body.has-titlebar.mode-note #decipherPanel { top: calc(var(--tb-h) + 44px); }
+
+/* ---------- 拉边改大小的抓手（透明，鼠标贴上去会有一点微光） ---------- */
+
+#winGrips { display: none; }
+body.has-titlebar #winGrips { display: block; }
+
+.wg {
+  position: fixed;
+  z-index: 190;
+  background: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.wg-n { top: 0; left: 6px; right: 6px; height: 5px; cursor: ns-resize; }
+.wg-s { bottom: 0; left: 6px; right: 6px; height: 5px; cursor: ns-resize; }
+.wg-w { left: 0; top: 6px; bottom: 6px; width: 5px; cursor: ew-resize; }
+.wg-e { right: 0; top: 6px; bottom: 6px; width: 5px; cursor: ew-resize; }
+.wg-nw { left: 0; top: 0; width: 10px; height: 10px; cursor: nwse-resize; }
+.wg-ne { right: 0; top: 0; width: 10px; height: 10px; cursor: nesw-resize; }
+.wg-sw { left: 0; bottom: 0; width: 10px; height: 10px; cursor: nesw-resize; }
+.wg-se { right: 0; bottom: 0; width: 10px; height: 10px; cursor: nwse-resize; }
+
+.wg:hover { background: rgba(255, 215, 150, 0.22); }
+.wg-nw:hover, .wg-ne:hover, .wg-sw:hover, .wg-se:hover { background: rgba(255, 215, 150, 0.34); }
+
+/* 简记条上的按钮点亮态（打开破译台时用） */
+.nb-btn.on {
+  background: rgba(224, 166, 85, 0.26);
+  border-color: rgba(234, 190, 110, 0.6);
+  color: #ffe6b0;
+}
+
+.nb-btn.on:hover {
+  background: rgba(224, 166, 85, 0.36);
+  color: #fff6dd;
+}
+
+/* ---------- 浏览器模式 / 外壳没连上时的说明 ---------- */
+
+.shell-notice {
+  position: fixed;
+  left: 14px;
+  bottom: 14px;
+  z-index: 60;
+  max-width: min(430px, calc(100vw - 28px));
+  padding: 10px 34px 11px 13px;
+  border: 1px solid rgba(255, 215, 150, 0.28);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(42, 32, 23, 0.97), rgba(20, 13, 9, 0.97));
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.55);
+  color: #e9e0cf;
+  font-size: 12.5px;
+  line-height: 1.65;
+}
+
+.shell-notice .sn-title { color: #f7e9c8; font-weight: 600; margin-bottom: 3px; }
+.shell-notice .sn-body { color: #c9bda9; }
+.shell-notice b { color: #f0d9a4; }
+
+.shell-notice .sn-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #d8d1c5;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.shell-notice .sn-close:hover {
+  background: rgba(224, 51, 51, 0.25);
+  border-color: rgba(224, 51, 51, 0.5);
+  color: #fff;
+}
+
+body.mode-note .shell-notice {
+  left: 8px;
+  bottom: 34px;
+  max-width: calc(100vw - 16px);
+  font-size: 12px;
+}

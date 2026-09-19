@@ -1,0 +1,408 @@
+/* ========== 简记模式（细长条笔记窗口） ========== */
+
+#noteApp {
+  position: fixed;
+  inset: 0;
+  z-index: 26;
+  display: none;
+  flex-direction: column;
+  background: linear-gradient(180deg, #241a12 0%, #17100a 100%);
+}
+
+body.mode-note #noteApp { display: flex; }
+body.mode-note #topbar,
+body.mode-note #zoombar,
+body.mode-note #scene,
+body.mode-note #hint,
+body.mode-note #hintRestore { display: none !important; }
+
+/* ---------- 顶部工具条（同时也是窗口拖动区） ---------- */
+
+.nb-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 8px 0 10px;
+  border-bottom: 2px solid #50301c;
+  background:
+    repeating-linear-gradient(92deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 7px),
+    linear-gradient(180deg, #2a2017 0%, #1a120b 46%, #100b06 100%);
+  user-select: none;
+}
+
+.nb-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 34px;
+  overflow: hidden;
+  white-space: nowrap;
+  color: #f7e9c8;
+  font-size: 12.5px;
+  letter-spacing: 0.4px;
+}
+
+.nb-title .nb-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+/* 简记名称输入框（和照片墙右上角那个「未命名事件」一个样式） */
+.nb-title-input {
+  flex: 1 1 auto;
+  min-width: 56px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.3);
+  color: #f3ead7;
+  font: inherit;
+  font-size: 12px;
+  text-align: right;
+  outline: none;
+}
+
+.nb-title-input:focus {
+  border-color: rgba(234, 190, 110, 0.7);
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.nb-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.nb-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #d8d1c5;
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.nb-btn:hover { background: rgba(255, 255, 255, 0.13); color: #fff; }
+.nb-btn.accent { color: #f7e9c8; border-color: rgba(234, 190, 110, 0.34); }
+.nb-btn.accent:hover { background: rgba(224, 166, 85, 0.2); }
+.nb-btn.on { background: rgba(224, 166, 85, 0.26); border-color: rgba(234, 190, 110, 0.6); color: #ffe6b0; }
+
+/* 窗口拉窄的时候（细长条本来就是窄的），按钮只留图标 */
+@media (max-width: 560px) {
+  .nb-title { min-width: 70px; }
+  .nb-title-input { font-size: 11.5px; padding: 0 6px; }
+  .nb-btn .nb-lbl { display: none; }
+  .nb-btn { width: 30px; padding: 0; justify-content: center; }
+  .nb-bar { gap: 4px; padding: 0 6px; }
+  .nb-foot .nb-count { display: none; }
+}
+
+/* ---------- 笔记纸 ---------- */
+
+.nb-sheet {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 10px 10px 0;
+  padding: 14px 14px 30px;
+  border-radius: 10px;
+  background:
+    repeating-linear-gradient(0deg, rgba(120, 90, 40, 0.05) 0 1px, transparent 1px 27px),
+    linear-gradient(180deg, #fbf7ea 0%, #f6f0e0 100%);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+  scrollbar-width: thin;
+}
+
+.nb-sheet::-webkit-scrollbar { width: 8px; }
+.nb-sheet::-webkit-scrollbar-thumb { background: rgba(120, 90, 40, 0.28); border-radius: 5px; }
+
+.nb-block {
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.nb-block + .nb-block { border-top: 1px dashed rgba(122, 90, 34, 0.18); padding-top: 8px; }
+
+.nb-block .nb-kill {
+  position: absolute;
+  top: 2px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: #7a5a22;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+}
+
+.nb-block:hover .nb-kill { opacity: 1; }
+.nb-block .nb-kill:hover { background: #a0181c; border-color: #a0181c; color: #fff; }
+
+/* 图片左侧的「贴到照片墙」按钮（和 ✕ 并排） */
+.nb-block .nb-pin {
+  position: absolute;
+  top: 2px;
+  right: 18px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: #7a5a22;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+}
+
+.nb-block .nb-pin svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nb-block:hover .nb-pin { opacity: 1; }
+.nb-block .nb-pin:hover { background: #7a5a22; border-color: #7a5a22; color: #ffeec9; }
+
+/* ---------- 右键菜单 ---------- */
+
+.nb-menu {
+  position: fixed;
+  z-index: 99;
+  min-width: 128px;
+  padding: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 252, 246, 0.98);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(2px);
+}
+
+.nb-menu button {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #3b3226;
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nb-menu button:hover:not(:disabled) { background: rgba(122, 90, 34, 0.14); }
+
+.nb-menu button:disabled {
+  color: #b9b0a2;
+  cursor: default;
+}
+
+/* ---------- 阅读态 ---------- */
+
+.nb-view {
+  min-height: 26px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  color: #3b3226;
+  font-family: "Kaiti SC", "STKaiti", "KaiTi", "Segoe UI", "Microsoft YaHei", sans-serif;
+  font-size: var(--nb-font, 100%);
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+  cursor: text;
+}
+
+.nb-view:empty::before {
+  content: "点这里写点什么…";
+  color: rgba(70, 57, 15, 0.32);
+}
+
+.nb-view:hover { background: rgba(122, 90, 34, 0.07); }
+
+.nb-view > *:first-child { margin-top: 0; }
+.nb-view > *:last-child { margin-bottom: 0; }
+.nb-view p { margin: 3px 0; }
+.nb-view h1, .nb-view h2, .nb-view h3 { margin: 8px 0 4px; color: #2c2418; line-height: 1.4; }
+.nb-view h1 { font-size: 1.35em; }
+.nb-view h2 { font-size: 1.18em; }
+.nb-view h3 { font-size: 1.05em; }
+.nb-view ul, .nb-view ol { margin: 4px 0 4px 20px; padding: 0; }
+.nb-view li { margin: 1px 0; }
+.nb-view blockquote {
+  margin: 6px 0;
+  padding: 2px 10px;
+  border-left: 3px solid rgba(160, 24, 28, 0.45);
+  color: #5c5140;
+}
+.nb-view code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(122, 90, 34, 0.13);
+  font-family: Consolas, "Cascadia Mono", monospace;
+  font-size: 0.9em;
+}
+.nb-view pre {
+  margin: 6px 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(122, 90, 34, 0.12);
+  overflow-x: auto;
+}
+.nb-view pre code { background: none; padding: 0; }
+.nb-view hr { border: 0; border-top: 1px dashed rgba(122, 90, 34, 0.4); margin: 10px 0; }
+.nb-view a { color: #a0181c; }
+.nb-view strong { color: #241d12; }
+
+/* ---------- 编辑态：像 Typora 那样"直接写在纸上"，没有输入框边框 ---------- */
+
+.nb-edit {
+  display: block;
+  width: 100%;
+  min-height: 30px;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 6px;
+  outline: none;
+  resize: none;
+  overflow: hidden;
+  background: transparent;
+  color: #3b3226;
+  /* 和阅读态用同一套字体/字号/行高，切换时不会跳 */
+  font-family: "Kaiti SC", "STKaiti", "KaiTi", "Segoe UI", "Microsoft YaHei", sans-serif;
+  font-size: var(--nb-font, 100%);
+  line-height: 1.8;
+  caret-color: #a0181c;
+}
+
+.nb-edit:focus { background: transparent; box-shadow: none; }
+
+/* ---------- 图片 ---------- */
+
+.nb-imgbox { padding: 2px 6px; }
+
+.nb-img {
+  display: block;
+  width: 100%;
+  border-radius: 8px;
+  background: #e8e0cc;
+  cursor: zoom-in;
+}
+
+/* 点图片 → 应用内放大查看（不再弹"用什么应用打开 blob 链接"） */
+.nb-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(10, 7, 4, 0.88);
+  cursor: zoom-out;
+}
+
+.nb-lightbox img {
+  max-width: 92vw;
+  max-height: 82vh;
+  border-radius: 10px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.65);
+}
+
+.nb-lightbox .nb-light-hint {
+  color: #d9cfba;
+  font-size: 12px;
+}
+
+.nb-lost {
+  padding: 14px 10px;
+  border: 1px dashed rgba(122, 90, 34, 0.4);
+  border-radius: 8px;
+  color: rgba(70, 57, 15, 0.55);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+.nb-empty {
+  padding: 24px 8px;
+  text-align: center;
+  color: rgba(70, 57, 15, 0.5);
+  font-size: 13px;
+  line-height: 1.9;
+}
+
+/* ---------- 底部 ---------- */
+
+.nb-foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 10px 4px;
+  font-size: 11px;
+  color: #9d8f7d;
+  user-select: none;
+}
+
+.nb-foot .nb-count { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nb-foot .nb-tools2 { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+
+.nb-mini {
+  height: 22px;
+  padding: 0 7px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #a99b88;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.nb-mini:hover { background: rgba(255, 255, 255, 0.12); color: #f0e6d2; }
+.nb-size { min-width: 34px; text-align: center; }
+
+/* 拖图片进窗口时给个提示 */
+body.mode-note.nb-drag-over .nb-sheet {
+  box-shadow: 0 0 0 3px rgba(224, 166, 85, 0.65), 0 10px 26px rgba(0, 0, 0, 0.45);
+}
+
+/* ---------- 简记模式下的破译台：占满整条窗口，顶在工具条下面 ---------- */
+
+body.mode-note #decipherPanel {
+  top: 44px;
+  width: 100%;
+  max-width: none;
+  z-index: 40;
+  border-left: 0;
+}
